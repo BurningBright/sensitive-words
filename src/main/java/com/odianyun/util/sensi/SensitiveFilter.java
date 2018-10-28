@@ -5,9 +5,7 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.Serializable;
 import java.nio.charset.StandardCharsets;
-import java.util.Arrays;
-import java.util.Iterator;
-import java.util.NavigableSet;
+import java.util.*;
 
 /**
  * 敏感词过滤器，以过滤速度优化为主。<br/>
@@ -279,13 +277,30 @@ public class SensitiveFilter implements Serializable {
 
         StringPointer sp = new StringPointer(word.trim());
         int hash = sp.nextTwoCharHash(0);
-
+        int mix = sp.nextTwoCharMix(0);
         int index = hash & (nodes.length - 1);
 
         // pick node from the first bucket
-        return remove(nodes[index], sp);
+        boolean deleted = false;
+        for (SensitiveNode i = nodes[index]; i != null; i=i.next)
+            if (i.headTwoCharMix == mix)
+                deleted = true;
+
+        if (deleted) {
+            boolean endFlag = remove(nodes[index], sp);
+            if (endFlag && nodes[index].words.size() == 0)
+                nodes[index] = null;
+        }
+
+        return deleted;
     }
 
+    /**
+     * remove node
+     * @param node current node
+     * @param sp current pointer
+     * @return whether ended
+     */
     private boolean remove(SensitiveNode node, StringPointer sp) {
         /* if node not exist return false */
         if (node == null) return false;
@@ -293,27 +308,20 @@ public class SensitiveFilter implements Serializable {
         int mix = sp.nextTwoCharMix(0);
         if (node.headTwoCharMix == mix) {
             node.words.remove(sp);
-            return true;
+            if (node.next == null && node.words.size() == 0)
+                return true;
+            else
+                return false;
         }
-        /* from method stack judge to check node condition or not */
-        return remove(node.next, sp);
+        /* from method stack judge to delete node or not */
+        boolean endFlag = remove(node.next, sp);
+        /* delete invalid node */
+        if (endFlag) node.next = null;
+        return node.words.size() == 0;
     }
 
     public String toString() {
         return Arrays.toString(nodes);
     }
 
-    public void unload() {
-        BufferedReader reader = new BufferedReader(new InputStreamReader(
-                ClassLoader.getSystemResourceAsStream("sensi_words.txt")
-                , StandardCharsets.UTF_8));
-        try {
-            for (String line = reader.readLine(); line != null; line = reader.readLine()) {
-                remove(line);
-            }
-            reader.close();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-    }
 }

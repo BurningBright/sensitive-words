@@ -1,12 +1,10 @@
 package com.odianyun.util.sensi;
 
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.InputStreamReader;
-import java.io.PrintStream;
+import java.io.*;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Random;
 
 import junit.framework.TestCase;
 
@@ -14,8 +12,29 @@ public class SensitiveFilterTest extends TestCase {
 
     public void testRemove() {
         SensitiveFilter filter = SensitiveFilter.DEFAULT;
-        filter.unload();
+
+        BufferedReader reader = new BufferedReader(new InputStreamReader(
+                ClassLoader.getSystemResourceAsStream("sensi_words.txt")
+                , StandardCharsets.UTF_8));
+        ArrayList<String> list = new ArrayList<>();
+        try {
+            for (String line = reader.readLine(); line != null; line = reader.readLine()) {
+                list.add(line);
+            }
+            reader.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        String[] data = new String[list.size()];
+        list.toArray(data);
+        shuffle(data);
+
+        for (String word: data)
+            filter.remove(word);
+
         System.out.println(filter);
+
     }
 
     public void testContains() {
@@ -110,6 +129,17 @@ public class SensitiveFilterTest extends TestCase {
         System.out.println(String.format("过滤耗时 %1.3f 秒， 速度为 %1.1f字符/毫秒", timer * 1E-3, length / (double) timer));
         System.out.println(String.format("其中 %d 行有替换", replaced));
 
+    }
+
+    public static void shuffle(Object[] a) {
+        int N = a.length;
+        Random random = new Random();
+        for (int i = 0; i < N; i++) {
+            int r = i + random.nextInt(N-i);     // between i and N-1
+            Object temp = a[i];
+            a[i] = a[r];
+            a[r] = temp;
+        }
     }
 
 }
